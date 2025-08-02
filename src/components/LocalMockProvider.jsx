@@ -41,7 +41,8 @@ const createMockEntity = (dataSource, entityName) => ({
   update: async (id, updates) => {
     console.log(`[MOCK] ${entityName}.update called for ${id}`);
     let updatedItem;
-    mockData[dataSource === mockData.boards ? 'boards' : 'notes'] = dataSource.map(item => {
+    const arrayName = dataSource === mockData.boards ? 'boards' : 'notes';
+    mockData[arrayName] = dataSource.map(item => {
       if (item.id === id) {
         updatedItem = { ...item, ...updates, updated_date: new Date().toISOString() };
         return updatedItem;
@@ -52,11 +53,11 @@ const createMockEntity = (dataSource, entityName) => ({
   },
   delete: async (id) => {
     console.log(`[MOCK] ${entityName}.delete called for ${id}`);
-    mockData[dataSource === mockData.boards ? 'boards' : 'notes'] = dataSource.filter(item => item.id !== id);
+    const arrayName = dataSource === mockData.boards ? 'boards' : 'notes';
+    mockData[arrayName] = dataSource.filter(item => item.id !== id);
     return { success: true };
   },
 });
-
 
 // --- EXPORTED MOCKS ---
 
@@ -86,23 +87,100 @@ export const Board = createMockEntity(mockData.boards, 'Board');
 export const StickyNote = createMockEntity(mockData.notes, 'StickyNote');
 
 // Mock for: @/api/functions/initiateStripeCheckout
-export const initiateStripeCheckout = async (params) => {
-  console.log('[MOCK] initiateStripeCheckout called with:', params);
-  alert('Checkout is disabled in local mock mode.');
-  return { data: { error: 'Checkout disabled in mock mode.' } };
+export const initiateStripeCheckout = async () => {
+  console.log('[MOCK] initiateStripeCheckout called');
+  return { data: { checkout_url: 'https://mock-stripe-url.com' } };
+};
+
+// Mock for: @/api/functions/stripeTest
+export const stripeTest = async () => {
+  console.log('[MOCK] stripeTest called');
+  return { data: { status: 'mock test successful' } };
 };
 
 // Mock for: @/api/integrations/Core
-export const InvokeLLM = async ({ prompt }) => {
-  console.log('[MOCK] InvokeLLM called with prompt:', prompt);
-  await new Promise(res => setTimeout(res, 300));
-  return { responseText: "This is a mock AI response for local testing." };
-};
-
 export const UploadFile = async ({ file }) => {
-  console.log('[MOCK] UploadFile called with file:', file.name);
-  return { file_url: 'https://via.placeholder.com/400x300.png?text=Mock+Upload' };
+  console.log('[MOCK] UploadFile called with file:', file?.name);
+  return { file_url: 'https://mock-file-url.com/mock-file.jpg' };
 };
 
-// Default export is a dummy component to make this a valid component file.
-export default function LocalMockProvider() { return null; }
+export const InvokeLLM = async ({ prompt, response_json_schema }) => {
+  console.log('[MOCK] InvokeLLM called with prompt:', prompt);
+  if (response_json_schema) {
+    return {
+      responseText: 'This is a mock AI response.',
+      suggestions: [
+        {
+          action: 'update',
+          noteId: 'note-1',
+          changes: { priority: 'high' },
+          reason: 'Mock suggestion to increase priority'
+        }
+      ]
+    };
+  }
+  return 'This is a mock AI response.';
+};
+
+export const SendEmail = async (params) => {
+  console.log('[MOCK] SendEmail called with:', params);
+  return { success: true };
+};
+
+export const GenerateImage = async ({ prompt }) => {
+  console.log('[MOCK] GenerateImage called with prompt:', prompt);
+  return { url: 'https://images.unsplash.com/photo-1617854818583-09e7f077a156?w=400' };
+};
+
+export const ExtractDataFromUploadedFile = async ({ file_url, json_schema }) => {
+  console.log('[MOCK] ExtractDataFromUploadedFile called');
+  return {
+    status: 'success',
+    output: [{ title: 'Mock extracted data', content: 'Mock content' }]
+  };
+};
+
+// Mock for: @base44/sdk
+export const createClient = ({ appId, requiresAuth }) => {
+  console.log(`[MOCK] createClient called for app: ${appId}, auth required: ${requiresAuth}`);
+  return {
+    auth: {
+      me: async () => {
+        console.log('[MOCK SDK] auth.me called');
+        return mockData.user;
+      },
+      setToken: (token) => console.log(`[MOCK SDK] auth.setToken called with: ${token}`),
+    },
+    entities: {
+      Board: createMockEntity(mockData.boards, 'Board'),
+      StickyNote: createMockEntity(mockData.notes, 'StickyNote'),
+      User: {
+        update: async (id, updates) => {
+          console.log(`[MOCK SDK] entities.User.update called for ${id}`);
+          Object.assign(mockData.user, updates);
+          return mockData.user;
+        },
+        filter: async (filters) => {
+          console.log(`[MOCK SDK] entities.User.filter called with: ${JSON.stringify(filters)}`);
+          if (filters.email === mockData.user.email) return [mockData.user];
+          return [];
+        }
+      },
+    },
+  };
+};
+
+// Export everything as default as well for broader compatibility
+export default {
+  User,
+  Board,
+  StickyNote,
+  initiateStripeCheckout,
+  stripeTest,
+  UploadFile,
+  InvokeLLM,
+  SendEmail,
+  GenerateImage,
+  ExtractDataFromUploadedFile,
+  createClient
+};
