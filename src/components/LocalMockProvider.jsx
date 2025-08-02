@@ -87,58 +87,44 @@ export const Board = createMockEntity(mockData.boards, 'Board');
 export const StickyNote = createMockEntity(mockData.notes, 'StickyNote');
 
 // Mock for: @/api/functions/initiateStripeCheckout
-export const initiateStripeCheckout = async () => {
-  console.log('[MOCK] initiateStripeCheckout called');
-  return { data: { checkout_url: 'https://mock-stripe-url.com' } };
+export const initiateStripeCheckout = async (payload) => {
+  console.log('[MOCK] initiateStripeCheckout called', payload);
+  return { data: { checkout_url: 'https://mock-checkout-url.com' } };
 };
 
-// Mock for: @/api/functions/stripeTest
-export const stripeTest = async () => {
-  console.log('[MOCK] stripeTest called');
-  return { data: { status: 'mock test successful' } };
-};
-
-// Mock for: @/api/integrations/Core
-export const UploadFile = async ({ file }) => {
-  console.log('[MOCK] UploadFile called with file:', file?.name);
-  return { file_url: 'https://mock-file-url.com/mock-file.jpg' };
-};
-
-export const InvokeLLM = async ({ prompt, response_json_schema }) => {
-  console.log('[MOCK] InvokeLLM called with prompt:', prompt);
-  if (response_json_schema) {
-    return {
-      responseText: 'This is a mock AI response.',
-      suggestions: [
-        {
-          action: 'update',
-          noteId: 'note-1',
-          changes: { priority: 'high' },
-          reason: 'Mock suggestion to increase priority'
-        }
-      ]
-    };
+// Mock for: @/api/integrations/Core.js
+// Group these into a 'Core' object if some code expects it this way
+export const Core = {
+  UploadFile: async ({ file }) => {
+    console.log('[MOCK Core] UploadFile called', file?.name);
+    return { file_url: `mock-file-url/${file?.name || 'test.png'}` };
+  },
+  InvokeLLM: async ({ prompt, add_context_from_internet, response_json_schema, file_urls }) => {
+    console.log('[MOCK Core] InvokeLLM called', prompt.substring(0, 50));
+    if (response_json_schema) {
+      // Return a simple mock object matching a common schema if a schema is provided
+      return { responseText: "Mock JSON response based on schema" };
+    }
+    // Otherwise, return a string response
+    return { responseText: "Mock LLM response: Hello from your AI mock!" };
+  },
+  GenerateImage: async ({ prompt }) => {
+    console.log('[MOCK Core] GenerateImage called', prompt.substring(0, 50));
+    // Provide a valid Unsplash image URL for testing
+    return { url: 'https://images.unsplash.com/photo-1698656165516-e5264b38340d?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTQxfHxtb2NrJTIwaW1hZ2V8ZW58MHx8MHx8fDA%3D' };
+  },
+  ExtractDataFromUploadedFile: async ({ file_url, json_schema }) => {
+    console.log('[MOCK Core] ExtractDataFromUploadedFile called', file_url);
+    // Return a mock success response for file extraction
+    return { status: 'success', output: [{ id: 'mock-data-1', value: 'extracted from mock file' }] };
   }
-  return 'This is a mock AI response.';
 };
 
-export const SendEmail = async (params) => {
-  console.log('[MOCK] SendEmail called with:', params);
-  return { success: true };
-};
-
-export const GenerateImage = async ({ prompt }) => {
-  console.log('[MOCK] GenerateImage called with prompt:', prompt);
-  return { url: 'https://images.unsplash.com/photo-1617854818583-09e7f077a156?w=400' };
-};
-
-export const ExtractDataFromUploadedFile = async ({ file_url, json_schema }) => {
-  console.log('[MOCK] ExtractDataFromUploadedFile called');
-  return {
-    status: 'success',
-    output: [{ title: 'Mock extracted data', content: 'Mock content' }]
-  };
-};
+// Also export individual integration functions for backward compatibility
+export const UploadFile = Core.UploadFile;
+export const InvokeLLM = Core.InvokeLLM;
+export const GenerateImage = Core.GenerateImage;
+export const ExtractDataFromUploadedFile = Core.ExtractDataFromUploadedFile;
 
 // Mock for: @base44/sdk
 export const createClient = ({ appId, requiresAuth }) => {
@@ -150,6 +136,7 @@ export const createClient = ({ appId, requiresAuth }) => {
         return mockData.user;
       },
       setToken: (token) => console.log(`[MOCK SDK] auth.setToken called with: ${token}`),
+      // Add other auth methods if you use them (e.g., login, logout)
     },
     entities: {
       Board: createMockEntity(mockData.boards, 'Board'),
@@ -157,30 +144,16 @@ export const createClient = ({ appId, requiresAuth }) => {
       User: {
         update: async (id, updates) => {
           console.log(`[MOCK SDK] entities.User.update called for ${id}`);
-          Object.assign(mockData.user, updates);
+          Object.assign(mockData.user, updates); // Assuming only current user is updated
           return mockData.user;
         },
         filter: async (filters) => {
-          console.log(`[MOCK SDK] entities.User.filter called with: ${JSON.stringify(filters)}`);
-          if (filters.email === mockData.user.email) return [mockData.user];
-          return [];
+            console.log(`[MOCK SDK] entities.User.filter called with: ${JSON.stringify(filters)}`);
+            if (filters.email === mockData.user.email) return [mockData.user];
+            return [];
         }
       },
     },
+    // Add other top-level SDK properties if your app uses them
   };
-};
-
-// Export everything as default as well for broader compatibility
-export default {
-  User,
-  Board,
-  StickyNote,
-  initiateStripeCheckout,
-  stripeTest,
-  UploadFile,
-  InvokeLLM,
-  SendEmail,
-  GenerateImage,
-  ExtractDataFromUploadedFile,
-  createClient
 };
