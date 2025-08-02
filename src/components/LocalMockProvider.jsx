@@ -59,7 +59,7 @@ const createMockEntity = (dataSource, entityName) => ({
   },
 });
 
-// --- EXPORTED MOCKS ---
+// --- EXPORTED MOCKS (NAMED EXPORTS) ---
 
 // Mock for: @/api/entities/User
 export const User = {
@@ -78,82 +78,74 @@ export const User = {
     Object.assign(mockData.user, data);
     return mockData.user;
   },
+  // Adding filter method directly to User mock for createClient consistency
+  filter: async (filters) => {
+    console.log('[MOCK] User.filter called with:', filters);
+    if (filters.email === mockData.user.email) return [mockData.user];
+    return [];
+  },
 };
 
-// Mock for: @/api/entities/Board
+// Mock for: @/api/entities/Board and @/api/entities/StickyNote
 export const Board = createMockEntity(mockData.boards, 'Board');
-
-// Mock for: @/api/entities/StickyNote
 export const StickyNote = createMockEntity(mockData.notes, 'StickyNote');
 
-// Mock for: @/api/functions/initiateStripeCheckout
+// Mock for: @/api/functions/*
 export const initiateStripeCheckout = async (payload) => {
   console.log('[MOCK] initiateStripeCheckout called', payload);
   return { data: { checkout_url: 'https://mock-checkout-url.com' } };
 };
 
-// Mock for: @/api/integrations/Core.js
-// Group these into a 'Core' object if some code expects it this way
+// Mock for: @/api/integrations/Core
 export const Core = {
   UploadFile: async ({ file }) => {
     console.log('[MOCK Core] UploadFile called', file?.name);
     return { file_url: `mock-file-url/${file?.name || 'test.png'}` };
   },
   InvokeLLM: async ({ prompt, add_context_from_internet, response_json_schema, file_urls }) => {
-    console.log('[MOCK Core] InvokeLLM called', prompt.substring(0, 50));
-    if (response_json_schema) {
-      // Return a simple mock object matching a common schema if a schema is provided
-      return { responseText: "Mock JSON response based on schema" };
-    }
-    // Otherwise, return a string response
+    console.log('[MOCK Core] InvokeLLM called', { prompt: prompt.substring(0, 50), add_context_from_internet, response_json_schema, file_urls });
     return { responseText: "Mock LLM response: Hello from your AI mock!" };
   },
   GenerateImage: async ({ prompt }) => {
     console.log('[MOCK Core] GenerateImage called', prompt.substring(0, 50));
-    // Provide a valid Unsplash image URL for testing
-    return { url: 'https://images.unsplash.com/photo-1698656165516-e5264b38340d?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTQxfHxtb2NrJTIwaW1hZ2V8ZW58MHx8MHx8fDA%3D' };
+    return { url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688' };
   },
   ExtractDataFromUploadedFile: async ({ file_url, json_schema }) => {
-    console.log('[MOCK Core] ExtractDataFromUploadedFile called', file_url);
-    // Return a mock success response for file extraction
+    console.log('[MOCK Core] ExtractDataFromUploadedFile called', { file_url, json_schema });
     return { status: 'success', output: [{ id: 'mock-data-1', value: 'extracted from mock file' }] };
   }
 };
 
-// Also export individual integration functions for backward compatibility
-export const UploadFile = Core.UploadFile;
-export const InvokeLLM = Core.InvokeLLM;
-export const GenerateImage = Core.GenerateImage;
-export const ExtractDataFromUploadedFile = Core.ExtractDataFromUploadedFile;
-
-// Mock for: @base44/sdk
-export const createClient = ({ appId, requiresAuth }) => {
-  console.log(`[MOCK] createClient called for app: ${appId}, auth required: ${requiresAuth}`);
+// Mock for: @base44/sdk's createClient
+// This is the main mock entry point when using the client.
+export const createClient = (config) => {
+  console.log(`[MOCK] createClient called for app: ${config.appId}, auth required: ${config.requiresAuth}`);
+  // This return object MUST mirror the real base44 client structure
   return {
     auth: {
-      me: async () => {
-        console.log('[MOCK SDK] auth.me called');
-        return mockData.user;
-      },
+      me: async () => { console.log('[MOCK SDK] auth.me called'); return mockData.user; },
       setToken: (token) => console.log(`[MOCK SDK] auth.setToken called with: ${token}`),
-      // Add other auth methods if you use them (e.g., login, logout)
     },
     entities: {
-      Board: createMockEntity(mockData.boards, 'Board'),
-      StickyNote: createMockEntity(mockData.notes, 'StickyNote'),
-      User: {
-        update: async (id, updates) => {
-          console.log(`[MOCK SDK] entities.User.update called for ${id}`);
-          Object.assign(mockData.user, updates); // Assuming only current user is updated
-          return mockData.user;
-        },
-        filter: async (filters) => {
-            console.log(`[MOCK SDK] entities.User.filter called with: ${JSON.stringify(filters)}`);
-            if (filters.email === mockData.user.email) return [mockData.user];
-            return [];
-        }
-      },
+      User,
+      Board,
+      StickyNote,
     },
-    // Add other top-level SDK properties if your app uses them
+    // This was the missing piece causing the "reading 'Core'" error
+    integrations: {
+      Core,
+    },
+    // You can add other mocked client properties here if needed
   };
+};
+
+// --- DEFAULT EXPORT ---
+// This is crucial to handle `import MyModule from '...'` syntax
+export default {
+  User,
+  Board,
+  StickyNote,
+  initiateStripeCheckout,
+  Core,
+  createClient,
 };
